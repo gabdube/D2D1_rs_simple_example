@@ -7,7 +7,7 @@ use user32::*;
 use kernel32::*;
 
 use std::ptr::{null_mut, null};
-use std::mem::{size_of, uninitialized, transmute};
+use std::mem::{size_of, uninitialized, transmute, transmute_copy};
 
 ///////
 // CONST
@@ -41,9 +41,9 @@ pub struct MyAppRessources{
 }
 
 pub struct MyApp{
-    ressources: Option<MyAppRessources>,
-    factory: Option<*mut ID2D1Factory>,
-    hwnd: Option<HWND>,
+    ressources: MyAppRessources,
+    factory: *mut ID2D1Factory,
+    hwnd: HWND,
     ok: i32
 }
 
@@ -70,7 +70,7 @@ unsafe fn setup_d2d_factory(app: &mut MyApp){
         panic!("Could not create D2D1 factory.");
     }
     
-   app.factory = Some(factory)
+   app.factory = factory;
 } 
 
 /*
@@ -79,13 +79,14 @@ unsafe fn setup_d2d_factory(app: &mut MyApp){
 */
 unsafe fn setup_d2d_ressources(app: &mut MyApp){    
     
-    //Check if the ressources are allocated.
-    if app.ressources.is_some(){
+    //Check if the ressources are already allocated.
+    if !app.ressources.render_target.is_null(){
         return;
+    }else if app.factory.is_null(){
+        panic!("Cannot initialize ressources without a factory!");
     }
     
-    let hwnd = app.hwnd.unwrap();
-    let size: D2D_SIZE_U;
+    let hwnd = app.hwnd;
 	let mut rc: RECT = uninitialized();
     
     let mut ressources = MyAppRessources{
@@ -98,7 +99,7 @@ unsafe fn setup_d2d_ressources(app: &mut MyApp){
         Structures for CreateHwndRenderTarget
     */
     GetClientRect(hwnd, &mut rc);
-    size = D2D_SIZE_U{width: (rc.right-rc.left) as u32,
+    let size = D2D_SIZE_U{width: (rc.right-rc.left) as u32,
 				      height: (rc.bottom-rc.top) as u32};
     
     let pixel_format = D2D1_PIXEL_FORMAT{
@@ -130,30 +131,25 @@ unsafe fn setup_d2d_ressources(app: &mut MyApp){
     /*
         Allocate the ressources
     */
-    match app.factory{
-        Some(f) => {
-            let factory: &mut ID2D1Factory = transmute(f);
-            let mut rt: &mut ID2D1HwndRenderTarget;
-            
-            if factory.CreateHwndRenderTarget(&render_props, &hwnd_render_props, &mut ressources.render_target) != S_OK{
-                panic!("Could not create render target.");
-            }
-            
-            rt = transmute(ressources.render_target);
-            
-            if rt.CreateSolidColorBrush(&gray, null_properties, &mut ressources.brush1) != S_OK{
-				panic!("Could not create brush!");
-			}
-            
-            if rt.CreateSolidColorBrush(&red, null_properties, &mut ressources.brush2) != S_OK{
-				panic!("Could not create brush!");
-			}
-            
-        },
-        None => panic!("What?")
+
+    let factory: &mut ID2D1Factory = transmute(app.factory);
+    let mut rt: &mut ID2D1HwndRenderTarget;
+    
+    if factory.CreateHwndRenderTarget(&render_props, &hwnd_render_props, &mut ressources.render_target) != S_OK{
+        panic!("Could not create render target.");
     }
     
-    app.ressources = Some(ressources);
+    rt = transmute(ressources.render_target);
+    
+    if rt.CreateSolidColorBrush(&gray, null_properties, &mut ressources.brush1) != S_OK{
+        panic!("Could not create brush!");
+    }
+    
+    if rt.CreateSolidColorBrush(&red, null_properties, &mut ressources.brush2) != S_OK{
+        panic!("Could not create brush!");
+    }
+    
+    app.ressources = ressources;
 }
 
 
@@ -161,20 +157,15 @@ unsafe fn setup_d2d_ressources(app: &mut MyApp){
     Release the ressources used by Direct2D
 */
 unsafe fn clean_d2d_ressources(app: &mut MyApp){
-    match app.ressources.as_mut(){
-        Some(r) => {
-            transmute::<_, &mut IUnknown>(r.brush1).Release();
-            transmute::<_, &mut IUnknown>(r.brush2).Release();
-            transmute::<_, &mut IUnknown>(r.render_target).Release();
-            
-            r.brush1 = null_mut();
-            r.brush2 = null_mut();
-            r.render_target = null_mut();
-        },
-        None => {}
+    if !app.ressources.render_target.is_null(){
+        transmute::<_, &mut IUnknown>(app.ressources.brush1).Release();
+        transmute::<_, &mut IUnknown>(app.ressources.brush2).Release();
+        transmute::<_, &mut IUnknown>(app.ressources.render_target).Release();
+        
+        app.ressources.brush1 = null_mut();
+        app.ressources.brush2 = null_mut();
+        app.ressources.render_target = null_mut();
     }
-
-    app.ressources = None;
 }
 
 /*
@@ -183,43 +174,70 @@ unsafe fn clean_d2d_ressources(app: &mut MyApp){
 unsafe fn clean_d2d(app: &mut MyApp){
     clean_d2d_ressources(app);
     
-    match app.factory{
-        Some(i) => {
-            transmute::<_, &mut IUnknown>(i).Release();
-            app.factory = None;
-        },
-        None => panic!("What?")
+    if !app.factory.is_null(){
+        transmute::<_, &mut IUnknown>(app.factory).Release();
+        app.factory = null_mut();
     }
+           
 }
 
 ///////
 // WINDOW PROCEDURE
 ///////
 
+/*
+    Painting event
+*/
+unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
+    /*let identity = D2D1_MATRIX_3X2_F{
+        matrix:[[1, 0, 0],
+                [0, 1, 0]]
+    }*/
+    
+    let white = D2D1_COLOR_F{r:1.0, g:1.0, b:1.0, a:1.0};
+    
+    let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
+    let mut render_size = D2D1_SIZE_F{width: 0.0, height: 0.0};
+    
+    render.BeginDraw();
+    render.Clear(&white);
+    
+    render.GetSize(&mut render_size);
+    
+    render.EndDraw(null_mut(), null_mut())
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -> LRESULT{
     let mut result: (LPARAM, bool) = (1, true);
-    let myapp: &mut MyApp = transmute(GetWindowLongPtrW(hwnd, 0));
+    let myapp_ptr = GetWindowLongPtrW(hwnd, 0);
+    let myapp: &mut MyApp = transmute(myapp_ptr);
    
     match msg{
+        WM_MOUSEMOVE => {},
         WM_PAINT =>{
-            let mut result = S_OK;
-            match myapp.ressources.as_mut(){
-                Some(r) => {
-                    let render: &mut ID2D1HwndRenderTarget = transmute(r.render_target);
-                    render.BeginDraw();
-                    
-                    result = render.EndDraw(null_mut(), null_mut());
-                }
-                None => {}
-            }
+            //Recreate the ressources if the render target needs to be rebuilt
+            setup_d2d_ressources(myapp);
             
-            // Check if the ressources needs to be recreated.
-            if result == D2DERR_RECREATE_TARGET{
+            // Render the window & check if the ressources needs to be recreated.
+            if render_window(myapp) == D2DERR_RECREATE_TARGET{
                 clean_d2d_ressources(myapp);
             }
-        }
+        },
+        WM_SIZE => {
+          if myapp_ptr != 0{
+            let size: ((u16, u16), u32) = transmute(l);
+            let width: UINT32 = (size.0).0 as UINT32;
+            let height: UINT32 = (size.0).1 as UINT32; 
+            let render_size = D2D_SIZE_U{width: width, height: height};
+                    
+            let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
+            render.Resize(&render_size);
+          }else{
+               result = (0, false);
+          }
+        },
         MSG_CHECK =>{
-            // Check if the application data in in the window data.
+            // Check if the application data is in the window data.
             if myapp.ok != 322{
                 panic!("MyApp is not in the window!");
             }else{
@@ -230,6 +248,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -
             PostQuitMessage(0);
         },
         WM_CREATE => {
+            SetWindowLongPtrW(hwnd, 0, 0);
         },
         _ => {result = (0, false);}
     }
@@ -304,7 +323,7 @@ unsafe fn setup_window(app: &mut MyApp, class_name: &Vec<WCHAR>, window_name: &V
         panic!("Could not create window");
     }
     
-    app.hwnd = Some(hwnd);
+    app.hwnd = hwnd;
 }
 
 /*
@@ -312,13 +331,9 @@ unsafe fn setup_window(app: &mut MyApp, class_name: &Vec<WCHAR>, window_name: &V
     Send a custom message to ensure everything is fine.
 */
 unsafe fn pack_app(app: &mut MyApp){
-    match app.hwnd{
-        Some(hwnd) => {
-            SetWindowLongPtrW(hwnd, 0, transmute(app));
-            PostMessageW(hwnd, MSG_CHECK, 0, 0);
-        },
-        None => panic!("What?")
-    }
+    let app_ptr: *mut MyApp = transmute_copy(&app);
+    SetWindowLongPtrW(app.hwnd, 0, transmute(app_ptr));
+    PostMessageW(app.hwnd, MSG_CHECK, 0, 0);
 }
 
 
@@ -329,7 +344,15 @@ unsafe fn pack_app(app: &mut MyApp){
 
 fn main() {
     unsafe{
-        let mut app = MyApp{ok: 322, ressources: None, factory: None, hwnd: None};
+        let mut app = MyApp{ok: 322,
+            factory: null_mut(),
+            hwnd: null_mut(),
+            ressources: MyAppRessources{
+                render_target: null_mut(),
+                brush1: null_mut(),
+                brush2: null_mut()
+            }
+         };
         
         // 'MyApp' as UTF16
         let class_name: Vec<WCHAR> = vec![77, 121, 65, 112, 112, 0];
