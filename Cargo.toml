@@ -1,0 +1,10 @@
+[package]
+name = "d2d1_example"
+version = "1.0.0"
+authors = ["dberube4 <dberube98@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+winapi = "0.2"
+user32-sys = "0.1.2"
+kernel32-sys = "0.2.1"
