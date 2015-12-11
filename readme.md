@@ -3,7 +3,7 @@
 A simple yet very unsafe example to demonstrate how to use Direct2D from rust. Window creation and all that stuff is also included.
 
 ### Pretty picture
-[](img/capture.png)
+![](img/capture.png)
 
 ### Requirements
 
