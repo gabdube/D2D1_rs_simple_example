@@ -124,7 +124,7 @@ unsafe fn setup_d2d_resources(app: &mut MyApp){
         Allocate the resources
     */
 
-    let factory: &mut ID2D1Factory = transmute(app.factory);
+    let factory: &mut ID2D1Factory = &mut *app.factory;
     let mut rt: &mut ID2D1HwndRenderTarget;
     
     if factory.CreateHwndRenderTarget(&render_props, &hwnd_render_props, &mut resources.render_target) != S_OK{
