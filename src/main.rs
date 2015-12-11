@@ -27,14 +27,14 @@ extern "system" {
 // STRUCTURES
 ///////
 
-pub struct MyAppRessources{
+pub struct MyAppResources{
     render_target: *mut ID2D1HwndRenderTarget,
     brush1: *mut ID2D1SolidColorBrush,
     brush2: *mut ID2D1SolidColorBrush
 }
 
 pub struct MyApp{
-    ressources: MyAppRessources,
+    resources: MyAppResources,
     factory: *mut ID2D1Factory,
     hwnd: HWND,
 }
@@ -69,19 +69,19 @@ unsafe fn setup_d2d_factory(app: &mut MyApp){
     Create the ressource used when drawing in the window.
     
 */
-unsafe fn setup_d2d_ressources(app: &mut MyApp){    
+unsafe fn setup_d2d_resources(app: &mut MyApp){    
     
-    //Check if the ressources are already allocated.
-    if !app.ressources.render_target.is_null(){
+    //Check if the resources are already allocated.
+    if !app.resources.render_target.is_null(){
         return;
     }else if app.factory.is_null(){
-        panic!("Cannot initialize ressources without a factory!");
+        panic!("Cannot initialize resources without a factory!");
     }
     
     let hwnd = app.hwnd;
 	let mut rc: RECT = uninitialized();
     
-    let mut ressources = MyAppRessources{
+    let mut resources = MyAppResources{
         render_target: null_mut(),
         brush1: null_mut(),
         brush2: null_mut(),
@@ -121,53 +121,53 @@ unsafe fn setup_d2d_ressources(app: &mut MyApp){
     let red = D2D1_COLOR_F{r: 0.941, g: 0.353, b: 0.392, a: 1.0};
     
     /*
-        Allocate the ressources
+        Allocate the resources
     */
 
     let factory: &mut ID2D1Factory = transmute(app.factory);
     let mut rt: &mut ID2D1HwndRenderTarget;
     
-    if factory.CreateHwndRenderTarget(&render_props, &hwnd_render_props, &mut ressources.render_target) != S_OK{
+    if factory.CreateHwndRenderTarget(&render_props, &hwnd_render_props, &mut resources.render_target) != S_OK{
         panic!("Could not create render target.");
     }
     
-    rt = transmute(ressources.render_target);
+    rt = transmute(resources.render_target);
     
-    if rt.CreateSolidColorBrush(&gray, null_properties, &mut ressources.brush1) != S_OK{
+    if rt.CreateSolidColorBrush(&gray, null_properties, &mut resources.brush1) != S_OK{
         panic!("Could not create brush!");
     }
     
-    if rt.CreateSolidColorBrush(&red, null_properties, &mut ressources.brush2) != S_OK{
+    if rt.CreateSolidColorBrush(&red, null_properties, &mut resources.brush2) != S_OK{
         panic!("Could not create brush!");
     }
     
-    app.ressources = ressources;
+    app.resources = resources;
 }
 
 
 /*
-    Release the ressources used by Direct2D
+    Release the resources used by Direct2D
 */
-unsafe fn clean_d2d_ressources(app: &mut MyApp){
-    if !app.ressources.render_target.is_null(){
-        transmute::<_, &mut IUnknown>(app.ressources.brush1).Release();
-        transmute::<_, &mut IUnknown>(app.ressources.brush2).Release();
-        transmute::<_, &mut IUnknown>(app.ressources.render_target).Release();
+unsafe fn clean_d2d_resources(app: &mut MyApp){
+    if !app.resources.render_target.is_null(){
+        (*app.resources.brush1).Release();
+        (*app.resources.brush2).Release();
+        (*app.resources.render_target).Release();
         
-        app.ressources.brush1 = null_mut();
-        app.ressources.brush2 = null_mut();
-        app.ressources.render_target = null_mut();
+        app.resources.brush1 = null_mut();
+        app.resources.brush2 = null_mut();
+        app.resources.render_target = null_mut();
     }
 }
 
 /*
-    Release the ressources used by Direct2D
+    Release the resources used by Direct2D
 */
 unsafe fn clean_d2d(app: &mut MyApp){
-    clean_d2d_ressources(app);
+    clean_d2d_resources(app);
     
     if !app.factory.is_null(){
-        transmute::<_, &mut IUnknown>(app.factory).Release();
+        (*app.factory).Release();
         app.factory = null_mut();
     }
            
@@ -188,7 +188,7 @@ unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
   
     let white = D2D1_COLOR_F{r:1.0, g:1.0, b:1.0, a:1.0};
     
-    let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
+    let render = &mut *myapp.resources.render_target;
     let mut render_size = D2D1_SIZE_F{width: 0.0, height: 0.0};
     
     render.BeginDraw();
@@ -204,7 +204,7 @@ unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
         render.DrawLine(
             D2D_POINT_2F{x: count, y: 0.0},
             D2D_POINT_2F{x: count, y: render_size.height},
-            transmute(myapp.ressources.brush1),
+            transmute(myapp.resources.brush1),
             0.5,
             null_mut()
         );
@@ -217,7 +217,7 @@ unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
         render.DrawLine(
             D2D_POINT_2F{x: 0.0, y: count},
             D2D_POINT_2F{x: render_size.width, y: count},
-            transmute(myapp.ressources.brush1),
+            transmute(myapp.resources.brush1),
             0.5,
             null_mut()
         );
@@ -231,8 +231,8 @@ unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
     let rect1 = D2D1_RECT_F{left: rx-50.0, right: rx+50.0, top: ry-50.0, bottom: ry+50.0};
     let rect2 = D2D1_RECT_F{left: rx-100.0, right: rx+100.0, top: ry-100.0, bottom: ry+100.0};
     
-    render.FillRectangle(&rect1, transmute(myapp.ressources.brush1));
-    render.DrawRectangle(&rect2, transmute(myapp.ressources.brush2), 3.0, null_mut());
+    render.FillRectangle(&rect1, transmute(myapp.resources.brush1));
+    render.DrawRectangle(&rect2, transmute(myapp.resources.brush2), 3.0, null_mut());
     
     
     render.EndDraw(null_mut(), null_mut())
@@ -245,24 +245,21 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -
    
     match msg{
         WM_PAINT =>{
-            //Recreate the ressources if the render target needs to be rebuilt
-            setup_d2d_ressources(myapp);
+            //Recreate the resources if the render target needs to be rebuilt
+            setup_d2d_resources(myapp);
             
-            // Render the window & check if the ressources needs to be recreated.
+            // Render the window & check if the resources needs to be recreated.
             if render_window(myapp) == D2DERR_RECREATE_TARGET{
-                clean_d2d_ressources(myapp);
+                clean_d2d_resources(myapp);
             }
         },
         WM_SIZE => {
           if myapp_ptr != 0{
-            let packed_size = l as u32;
-            let size: (u16, u16) = transmute(packed_size);
-            
-            let width: UINT32 = size.0 as UINT32;
-            let height: UINT32 = size.1 as UINT32; 
+            let width = GET_X_LPARAM(l) as u32;
+            let height = GET_Y_LPARAM(l) as u32;
             let render_size = D2D_SIZE_U{width: width, height: height};
                     
-            let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
+            let render =  &mut *myapp.resources.render_target;
             render.Resize(&render_size);
           }else{
                result = (0, false);
@@ -368,7 +365,7 @@ fn main() {
         let mut app = MyApp{
             factory: null_mut(),
             hwnd: null_mut(),
-            ressources: MyAppRessources{
+            resources: MyAppResources{
                 render_target: null_mut(),
                 brush1: null_mut(),
                 brush2: null_mut()
@@ -386,7 +383,7 @@ fn main() {
         
         // D2D1 Setup
         setup_d2d_factory(&mut app);
-        setup_d2d_ressources(&mut app);
+        setup_d2d_resources(&mut app);
         
         // Application Loop
         let mut msg = uninitialized();
