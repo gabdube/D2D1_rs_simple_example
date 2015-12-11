@@ -10,13 +10,6 @@ use std::ptr::{null_mut, null};
 use std::mem::{size_of, uninitialized, transmute, transmute_copy};
 
 ///////
-// CONST
-///////
-
-pub const MSG_CHECK: UINT =  0x0400;  //WPARAM = 0 | LPARAM = 0
-
-
-///////
 // EXTERNS
 ///////
 
@@ -44,7 +37,6 @@ pub struct MyApp{
     ressources: MyAppRessources,
     factory: *mut ID2D1Factory,
     hwnd: HWND,
-    ok: i32
 }
 
 
@@ -252,7 +244,6 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -
     let myapp: &mut MyApp = transmute(myapp_ptr);
    
     match msg{
-        WM_MOUSEMOVE => {},
         WM_PAINT =>{
             //Recreate the ressources if the render target needs to be rebuilt
             setup_d2d_ressources(myapp);
@@ -264,9 +255,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -
         },
         WM_SIZE => {
           if myapp_ptr != 0{
-            let size: ((u16, u16), u32) = transmute(l);
-            let width: UINT32 = (size.0).0 as UINT32;
-            let height: UINT32 = (size.0).1 as UINT32; 
+            let packed_size = l as u32;
+            let size: (u16, u16) = transmute(packed_size);
+            
+            let width: UINT32 = size.0 as UINT32;
+            let height: UINT32 = size.1 as UINT32; 
             let render_size = D2D_SIZE_U{width: width, height: height};
                     
             let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
@@ -274,14 +267,6 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, w: WPARAM, l: LPARAM) -
           }else{
                result = (0, false);
           }
-        },
-        MSG_CHECK =>{
-            // Check if the application data is in the window data.
-            if myapp.ok != 322{
-                panic!("MyApp is not in the window!");
-            }else{
-                println!("\nEverything is fine!");
-            }
         },
         WM_DESTROY =>{
             PostQuitMessage(0);
@@ -372,7 +357,6 @@ unsafe fn setup_window(app: &mut MyApp, class_name: &Vec<WCHAR>, window_name: &V
 unsafe fn pack_app(app: &mut MyApp){
     let app_ptr: *mut MyApp = transmute_copy(&app);
     SetWindowLongPtrW(app.hwnd, 0, transmute(app_ptr));
-    PostMessageW(app.hwnd, MSG_CHECK, 0, 0);
 }
 
 
@@ -383,7 +367,7 @@ unsafe fn pack_app(app: &mut MyApp){
 
 fn main() {
     unsafe{
-        let mut app = MyApp{ok: 322,
+        let mut app = MyApp{
             factory: null_mut(),
             hwnd: null_mut(),
             ressources: MyAppRessources{
