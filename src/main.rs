@@ -298,18 +298,18 @@ unsafe fn setup_class(class_name: &Vec<WCHAR>){
     
     let class =
     WNDCLASSEXW{
-			cbSize: size_of::<WNDCLASSEXW>() as UINT,
-			style: CS_HREDRAW | CS_VREDRAW,
-			lpfnWndProc: Some(wndproc), 
-			cbClsExtra: 0,
-			cbWndExtra: 32,
-			hInstance: module,
-			hIcon: null_icon,
-			hCursor: LoadCursorW(module, IDC_ARROW),
-			hbrBackground: null_background,
-			lpszMenuName: null_name,
-			lpszClassName:  class_name.as_ptr(),
-			hIconSm: null_icon
+        cbSize: size_of::<WNDCLASSEXW>() as UINT,
+        style: CS_HREDRAW | CS_VREDRAW,
+        lpfnWndProc: Some(wndproc), 
+        cbClsExtra: 0,
+        cbWndExtra: 32,
+        hInstance: module,
+        hIcon: null_icon,
+        hCursor: LoadCursorW(module, IDC_ARROW),
+        hbrBackground: null_background,
+        lpszMenuName: null_name,
+        lpszClassName:  class_name.as_ptr(),
+        hIconSm: null_icon
 	};
     
     //Register the class
@@ -352,7 +352,6 @@ unsafe fn setup_window(app: &mut MyApp, class_name: &Vec<WCHAR>, window_name: &V
 
 /*
     Save the app address inside the window data.
-    Send a custom message to ensure everything is fine.
 */
 unsafe fn pack_app(app: &mut MyApp){
     SetWindowLongPtrW(app.hwnd, 0, transmute(app));
@@ -391,7 +390,7 @@ fn main() {
         
         // Application Loop
         let mut msg = uninitialized();
-		let null_handle: HWND = null_mut();
+        let null_handle: HWND = null_mut();
         while GetMessageW(&mut msg, null_handle, 0, 0) != 0{
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
