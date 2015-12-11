@@ -7,7 +7,7 @@ use user32::*;
 use kernel32::*;
 
 use std::ptr::{null_mut, null};
-use std::mem::{size_of, uninitialized, transmute, transmute_copy};
+use std::mem::{size_of, uninitialized, transmute};
 
 ///////
 // EXTERNS
@@ -355,8 +355,7 @@ unsafe fn setup_window(app: &mut MyApp, class_name: &Vec<WCHAR>, window_name: &V
     Send a custom message to ensure everything is fine.
 */
 unsafe fn pack_app(app: &mut MyApp){
-    let app_ptr: *mut MyApp = transmute_copy(&app);
-    SetWindowLongPtrW(app.hwnd, 0, transmute(app_ptr));
+    SetWindowLongPtrW(app.hwnd, 0, transmute(app));
 }
 
 
