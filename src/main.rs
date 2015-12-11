@@ -125,7 +125,7 @@ unsafe fn setup_d2d_ressources(app: &mut MyApp){
         Structures for ID2D1SolidColorBrush
     */
     let null_properties: *const D2D1_BRUSH_PROPERTIES = null();
-    let gray = D2D1_COLOR_F{r: 0.745, g: 0.823, b: 0.863, a: 1.0};
+    let gray = D2D1_COLOR_F{r: 0.345, g: 0.423, b: 0.463, a: 1.0};
     let red = D2D1_COLOR_F{r: 0.941, g: 0.353, b: 0.392, a: 1.0};
     
     /*
@@ -189,11 +189,11 @@ unsafe fn clean_d2d(app: &mut MyApp){
     Painting event
 */
 unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
-    /*let identity = D2D1_MATRIX_3X2_F{
-        matrix:[[1, 0, 0],
-                [0, 1, 0]]
-    }*/
-    
+    let identity = D2D1_MATRIX_3X2_F{
+        matrix:[[1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0]]
+    };
+  
     let white = D2D1_COLOR_F{r:1.0, g:1.0, b:1.0, a:1.0};
     
     let render: &mut ID2D1HwndRenderTarget = transmute(myapp.ressources.render_target);
@@ -202,7 +202,46 @@ unsafe fn render_window(myapp: &mut MyApp) -> HRESULT{
     render.BeginDraw();
     render.Clear(&white);
     
+    render.SetTransform(&identity);
     render.GetSize(&mut render_size);
+
+    
+    // Draw a grid background.
+    let mut count: FLOAT = 0.0;
+    while count < render_size.width{
+        render.DrawLine(
+            D2D_POINT_2F{x: count, y: 0.0},
+            D2D_POINT_2F{x: count, y: render_size.height},
+            transmute(myapp.ressources.brush1),
+            0.5,
+            null_mut()
+        );
+        
+        count += 10.0;
+    }
+    
+    count = 0.0;
+    while count < render_size.height{
+        render.DrawLine(
+            D2D_POINT_2F{x: 0.0, y: count},
+            D2D_POINT_2F{x: render_size.width, y: count},
+            transmute(myapp.ressources.brush1),
+            0.5,
+            null_mut()
+        );
+        
+        count += 10.0;
+    }
+    
+    // Draw two rectangles.
+    let rx = render_size.width/2.0;
+    let ry = render_size.height/2.0;
+    let rect1 = D2D1_RECT_F{left: rx-50.0, right: rx+50.0, top: ry-50.0, bottom: ry+50.0};
+    let rect2 = D2D1_RECT_F{left: rx-100.0, right: rx+100.0, top: ry-100.0, bottom: ry+100.0};
+    
+    render.FillRectangle(&rect1, transmute(myapp.ressources.brush1));
+    render.DrawRectangle(&rect2, transmute(myapp.ressources.brush2), 3.0, null_mut());
+    
     
     render.EndDraw(null_mut(), null_mut())
 }
